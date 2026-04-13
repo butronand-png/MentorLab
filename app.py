@@ -471,13 +471,36 @@ if user_input:
             unsafe_allow_html=True
         )
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1800,
-        system=SYSTEM_PROMPT,
-        messages=api_msgs,
-    )
-    raw = response.content[0].text
+    # Retry up to 3 times on overload
+    max_retries = 3
+    raw = None
+    for attempt in range(max_retries):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1800,
+                system=SYSTEM_PROMPT,
+                messages=api_msgs,
+            )
+            raw = response.content[0].text
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                loading.markdown(
+                    f'<div class="typing-bubble">'
+                    f'<div class="typing-label">🚀 MentorLab</div>'
+                    f'<span style="font-size:0.85rem;color:#4A6B5A">Server busy, retrying... ({attempt + 2}/{max_retries})</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                time.sleep(3)
+            else:
+                loading.empty()
+                st.error("The AI server is temporarily overloaded. Please wait 30 seconds and try again.")
+                st.stop()
+
+    if raw is None:
+        st.stop()
     loading.empty()
     st.session_state.messages.append({"role": "assistant", "content": raw})
 
